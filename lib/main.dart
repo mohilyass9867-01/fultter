@@ -1,44 +1,74 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:provider/provider.dart'; // 1. Import Provider
+
+// Menggunakan relative import agar aman dari perbedaan nama package root proyek
+import 'providers/habit_provider.dart';
+import 'pages/home_page.dart';
 import 'models/habit.dart';
-import 'providers/habit_provider.dart'; // 2. Import file HabitProvider kamu
-import 'core/theme/app_theme.dart';
-import 'core/navigation/app_routes.dart';
 
 void main() async {
-  // Pastikan WidgetBinding terinisialisasi jika menggunakan async di main
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 1. Inisialisasi Hive Flutter
+  // Inisialisasi Hive lokal untuk Flutter
   await Hive.initFlutter();
 
-  // 2. Register Adapter
-  Hive.registerAdapter(HabitAdapter());
+  // Registrasi Adapter Habit jika belum terdaftar
+  if (!Hive.isAdapterRegistered(HabitAdapter().typeId)) {
+    Hive.registerAdapter(HabitAdapter());
+  }
 
-  // 3. Buka "Box"
+  // Membuka box penyimpanan sesuai database lokal kamu
   await Hive.openBox<Habit>('habits');
 
-  // 4. Jalankan aplikasi dengan Provider
-  runApp(
-    ChangeNotifierProvider(
-      create: (context) => HabitProvider(),
-      child: const HabitTrackerApp(),
-    ),
-  );
+  runApp(const MyApp());
 }
 
-class HabitTrackerApp extends StatelessWidget {
-  const HabitTrackerApp({super.key});
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Habit Tracker',
-      theme: AppTheme.lightTheme,
-      initialRoute: AppRoutes.home,
-      routes: AppRoutes.getRoutes(),
-      debugShowCheckedModeBanner: false,
+    return ChangeNotifierProvider(
+      create: (context) => HabitProvider()..loadHabits(),
+      child: MaterialApp(
+        title: 'StudyFlow Habit Tracker',
+        debugShowCheckedModeBanner: false,
+
+        // --- PHASE 7: POLISH UI GLOBAL THEME ---
+        theme: ThemeData(
+          useMaterial3: true,
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: Colors.indigo,
+            primary: Colors.indigo,
+            secondary: const Color.fromARGB(255, 61, 131, 63),
+            surface: Colors.grey[50]!, // Background lembut abu-abu terang
+          ),
+
+          // Desain Card Global yang modern dan membulat
+          cardTheme: CardThemeData(
+            elevation: 2,
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+
+          // Desain AppBar Clean tanpa garis pemisah kaku
+          appBarTheme: const AppBarTheme(
+            centerTitle: true,
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            titleTextStyle: TextStyle(
+              color: Colors.black87,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        home: const HomePage(),
+      ),
     );
   }
 }

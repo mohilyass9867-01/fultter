@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 class AppTheme {
   // Definisi warna utama
-  static const Color primaryColor = Color(0xFF6200EE); 
-  static const Color backgroundColor = Color.fromARGB(255, 150, 54, 54);
+  static const Color primaryColor = Color.fromARGB(255, 177, 242, 127); 
+  static const Color backgroundColor = Color.fromARGB(255, 235, 209, 117);
 
   static final ThemeData lightTheme = ThemeData(
     primaryColor: primaryColor,
