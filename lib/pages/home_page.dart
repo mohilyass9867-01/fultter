@@ -11,189 +11,418 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  String _searchQuery = '';
-  String _selectedFilter = 'Semua'; // Opsi: Semua, Selesai, Belum
+  final TextEditingController _searchController = TextEditingController();
+  final List<String> _categories = [
+    'Semua',
+    'Umum',
+    'Belajar',
+    'Kesehatan',
+    'Rutinitas',
+  ];
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final habitProvider = Provider.of<HabitProvider>(context);
+    final theme = Theme.of(context);
 
-    // --- OPSI B: LOGIKA PENCARIAN & FILTER DATA ---
-    final filteredHabits = habitProvider.habits.where((habit) {
-      final matchesSearch = habit.title.toLowerCase().contains(
-        _searchQuery.toLowerCase(),
-      );
+    // EVALUASI STATISTIK HARIAN
+    final allHabits = habitProvider.habits;
+    final completedCount = allHabits.where((h) => h.isCompleted).length;
+    final double progressPercent = allHabits.isEmpty
+        ? 0.0
+        : completedCount / allHabits.length;
 
-      if (_selectedFilter == 'Selesai') {
-        return matchesSearch && habit.isCompleted;
-      } else if (_selectedFilter == 'Belum') {
-        return matchesSearch && !habit.isCompleted;
+    // Menghitung Rekor Streak Harian dan Mingguan Tertinggi
+    int maxDailyStreak = 0;
+    int maxWeeklyStreak = 0;
+
+    for (var habit in allHabits) {
+      if (habit.streak > maxDailyStreak) {
+        maxDailyStreak = habit.streak;
       }
-      return matchesSearch; // Default: 'Semua'
-    }).toList();
+      final wStreak = habitProvider.getWeeklyStreak(habit.id);
+      if (wStreak > maxWeeklyStreak) {
+        maxWeeklyStreak = wStreak;
+      }
+    }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('StudyFlow Habits')),
+      appBar: AppBar(title: const Text('StudyFlow Habit Tracker')),
       body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // --- OPSI B: COMPONENT SEARCH FIELD ---
+          // ===================================================================
+          // KOTAK CARD UTAMA (WARNA SUDAH DIBUAT ADAPTIF LIGHT/DARK MODE)
+          // ===================================================================
+          Card(
+            color: theme.colorScheme.primaryContainer.withValues(alpha: 0.25),
+            margin: const EdgeInsets.all(16),
+            elevation: 3,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Progres Hari Ini',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: theme.colorScheme.primary,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              allHabits.isEmpty
+                                  ? 'Belum ada data rutinitas hari ini.'
+                                  : '$completedCount dari ${allHabits.length} target selesai hari ini',
+                              style: theme
+                                  .textTheme
+                                  .bodyMedium, // Mengikuti warna teks tema aktif
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      SizedBox(
+                        width: 55,
+                        height: 55,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            CircularProgressIndicator(
+                              value: progressPercent,
+                              strokeWidth: 6,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                theme.colorScheme.primary,
+                              ),
+                              backgroundColor:
+                                  theme.colorScheme.surfaceContainerHighest,
+                            ),
+                            Text(
+                              '${(progressPercent * 100).toStringAsFixed(0)}%',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  LinearProgressIndicator(
+                    value: progressPercent,
+                    backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(8),
+                    minHeight: 6,
+                  ),
+                  const SizedBox(height: 16),
+
+                  // INFO AKUMULASI STREAK GLOBAL TERATAS
+                  IntrinsicHeight(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        Expanded(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Text('🔥', style: TextStyle(fontSize: 22)),
+                              const SizedBox(width: 8),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Streak Harian',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                  Text(
+                                    '$maxDailyStreak Hari',
+                                    style: theme.textTheme.bodyLarge?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        VerticalDivider(
+                          color: theme.colorScheme.outlineVariant,
+                          thickness: 1,
+                          indent: 2,
+                          endIndent: 2,
+                        ),
+                        Expanded(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Text('👑', style: TextStyle(fontSize: 22)),
+                              const SizedBox(width: 8),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Streak Mingguan',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                  Text(
+                                    '$maxWeeklyStreak Minggu',
+                                    style: theme.textTheme.bodyLarge?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: maxWeeklyStreak > 0
+                                          ? const Color.fromARGB(
+                                              255,
+                                              46,
+                                              38,
+                                              19,
+                                            )
+                                          : null, // Kuning amber yang aman di dark mode
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // 2. KOLOM PENCARIAN (SEARCH BAR)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             child: TextField(
-              onChanged: (value) {
-                setState(() {
-                  _searchQuery = value;
-                });
-              },
+              controller: _searchController,
+              onChanged: (value) => habitProvider.setSearchQuery(value),
               decoration: InputDecoration(
-                hintText: 'Cari rutinitas kamu...',
+                hintText: 'Cari nama rutinitas...',
                 prefixIcon: const Icon(Icons.search),
-                filled: true,
-                fillColor: Colors.white,
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                          habitProvider.setSearchQuery('');
+                        },
+                      )
+                    : null,
                 contentPadding: const EdgeInsets.symmetric(vertical: 0),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey[200]!),
+                  borderSide: BorderSide(
+                    color: theme.colorScheme.outlineVariant,
+                  ),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey[200]!),
+                  borderSide: BorderSide(
+                    color: theme.colorScheme.outlineVariant,
+                  ),
                 ),
               ),
             ),
           ),
 
-          // --- OPSI B: FILTER CHIPS COMPONENT ---
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: Row(
-              children: ['Semua', 'Selesai', 'Belum'].map((filter) {
-                final isSelected = _selectedFilter == filter;
+          const SizedBox(height: 12),
+
+          // 3. FILTER KATEGORI HORIZONTAL (CHOICE CHIPS)
+          SizedBox(
+            height: 40,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              itemCount: _categories.length,
+              itemBuilder: (context, index) {
+                final category = _categories[index];
+                final isSelected = habitProvider.selectedCategory == category;
                 return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: FilterChip(
-                    label: Text(filter == 'Belum' ? 'Belum Selesai' : filter),
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: ChoiceChip(
+                    label: Text(category),
                     selected: isSelected,
-                    onSelected: (bool selected) {
-                      setState(() {
-                        _selectedFilter = filter;
-                      });
-                    },
-                    selectedColor: Theme.of(
-                      context,
-                    ).colorScheme.primary.withValues(alpha: 0.15),
-                    checkmarkColor: Theme.of(context).colorScheme.primary,
-                    labelStyle: TextStyle(
-                      color: isSelected
-                          ? Theme.of(context).colorScheme.primary
-                          : Colors.black87,
-                      fontWeight: isSelected
-                          ? FontWeight.bold
-                          : FontWeight.normal,
-                    ),
+                    onSelected: (_) =>
+                        habitProvider.setSelectedCategory(category),
                   ),
                 );
-              }).toList(),
+              },
             ),
           ),
-          const SizedBox(height: 8),
 
-          // --- HABIT BUILDER LIST ---
+          const SizedBox(height: 12),
+
+          // 4. DAFTAR INDIVIDUAL HABIT (SUDAH ADAPTIF GELAP/TERANG)
           Expanded(
-            child: filteredHabits.isEmpty
+            child: allHabits.isEmpty
                 ? Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
-                          Icons.search_off_outlined,
+                          Icons.assignment_turned_in_outlined,
                           size: 64,
-                          color: Colors.grey[400],
+                          color: theme.colorScheme.outlineVariant,
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 12),
                         Text(
-                          'Tidak ada habit yang cocok\ndengan pencarian atau filter.',
-                          textAlign: TextAlign.center,
+                          'Tidak ada aktivitas yang ditemukan',
                           style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 15,
+                            color: theme.colorScheme.onSurfaceVariant,
+                            fontSize: 16,
                           ),
                         ),
                       ],
                     ),
                   )
                 : ListView.builder(
-                    itemCount: filteredHabits.length,
-                    padding: const EdgeInsets.only(top: 4, bottom: 80),
+                    itemCount: allHabits.length,
                     itemBuilder: (context, index) {
-                      final habit = filteredHabits[index];
-                      // Mencari indeks asli di provider agar tidak salah hapus/centang saat difilter
-                      final originalIndex = habitProvider.habits.indexOf(habit);
+                      final habit = allHabits[index];
+                      final int weeklyStreak = habitProvider.getWeeklyStreak(
+                        habit.id,
+                      );
 
                       return Card(
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(16),
-                          onLongPress: () {
-                            _showDeleteDialog(
-                              context,
-                              habitProvider,
-                              habit,
-                              originalIndex,
-                            );
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              vertical: 4,
-                              horizontal: 8,
+                        elevation: habit.isCompleted ? 1 : 2,
+                        color: habit.isCompleted
+                            ? Colors.green.withValues(
+                                alpha: 0.15,
+                              ) // Sedikit lebih tebal agar kontras di dark mode
+                            : theme
+                                  .cardColor, // Mengikuti warna latar card tema aktif
+                        child: ListTile(
+                          leading: IconButton(
+                            icon: Icon(
+                              habit.isCompleted
+                                  ? Icons.check_circle
+                                  : Icons.radio_button_unchecked,
+                              color: habit.isCompleted
+                                  ? Colors.green
+                                  : theme.colorScheme.onSurfaceVariant,
+                              size: 28,
                             ),
-                            child: CheckboxListTile(
-                              title: Text(
-                                habit.title,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  decoration: habit.isCompleted
-                                      ? TextDecoration.lineThrough
-                                      : TextDecoration.none,
-                                  color: habit.isCompleted
-                                      ? Colors.grey
-                                      : Colors.black87,
-                                ),
-                              ),
-                              subtitle: Row(
-                                children: [
-                                  Icon(
-                                    Icons.local_fire_department,
-                                    size: 16,
-                                    color: habit.streakCount > 0
-                                        ? Colors.orange
-                                        : Colors.grey,
+                            onPressed: () =>
+                                habitProvider.toggleHabitCompletion(habit.id),
+                          ),
+                          title: Text(
+                            habit.name,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              decoration: habit.isCompleted
+                                  ? TextDecoration.lineThrough
+                                  : null,
+                              color: habit.isCompleted
+                                  ? theme.colorScheme.onSurfaceVariant
+                                  : null,
+                            ),
+                          ),
+                          subtitle: Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 2,
                                   ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    '${habit.streakCount} Hari Streak',
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.secondaryContainer
+                                        .withValues(alpha: 0.5),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    habit.category,
                                     style: TextStyle(
-                                      fontSize: 13,
-                                      color: habit.streakCount > 0
-                                          ? Colors.orange[700]
-                                          : Colors.grey,
-                                      fontWeight: FontWeight.w500,
+                                      fontSize: 11,
+                                      color: theme
+                                          .colorScheme
+                                          .onSecondaryContainer,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Text(
+                                    '🔥',
+                                    style: TextStyle(fontSize: 14),
+                                  ),
+                                  Text(
+                                    '${habit.streak} Hari',
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      fontWeight: FontWeight.bold,
                                     ),
                                   ),
                                 ],
                               ),
-                              value: habit.isCompleted,
-                              activeColor: Theme.of(
-                                context,
-                              ).colorScheme.secondary,
-                              checkColor: Colors.white,
-                              controlAffinity: ListTileControlAffinity.leading,
-                              onChanged: (bool? value) {
-                                habitProvider.toggleHabitCompletion(
-                                  originalIndex,
-                                );
-                              },
-                            ),
+                              const SizedBox(width: 12),
+                              Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Text(
+                                    '👑',
+                                    style: TextStyle(fontSize: 14),
+                                  ),
+                                  Text(
+                                    '$weeklyStreak Mggu',
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: weeklyStreak > 0
+                                          ? const Color.fromARGB(
+                                              255,
+                                              49,
+                                              43,
+                                              28,
+                                            )
+                                          : theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(width: 4),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.delete_outline,
+                                  color: Colors.redAccent,
+                                  size: 20,
+                                ),
+                                onPressed: () {
+                                  _showDeleteConfirmation(
+                                    context,
+                                    habitProvider,
+                                    habit,
+                                  );
+                                },
+                              ),
+                            ],
                           ),
                         ),
                       );
@@ -202,49 +431,36 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          _showAddHabitBottomSheet(context, habitProvider);
-        },
-        label: const Text('Tambah Habit'),
-        icon: const Icon(Icons.add),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Colors.white,
-        elevation: 4,
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showAddHabitBottomSheet(context, habitProvider),
+        child: const Icon(Icons.add),
       ),
     );
   }
 
-  void _showDeleteDialog(
+  void _showDeleteConfirmation(
     BuildContext context,
     HabitProvider provider,
     Habit habit,
-    int index,
   ) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Hapus Habit'),
-        content: Text('Apakah kamu yakin ingin menghapus "${habit.title}"?'),
+        title: const Text('Hapus Rutinitas?'),
+        content: Text(
+          'Apakah kamu yakin ingin menghapus "${habit.name}"? Seluruh rekam jejak streak akan ikut terhapus.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Batal'),
           ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red[50],
-              foregroundColor: Colors.red,
-              elevation: 0,
-            ),
+          TextButton(
             onPressed: () {
-              provider.deleteHabit(index);
+              provider.deleteHabit(habit.id);
               Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('${habit.title} berhasil dihapus')),
-              );
             },
-            child: const Text('Hapus'),
+            child: const Text('Hapus', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -252,72 +468,93 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _showAddHabitBottomSheet(BuildContext context, HabitProvider provider) {
-    final controller = TextEditingController();
+    final TextEditingController nameController = TextEditingController();
+    String selectedCategory = 'Umum';
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-          top: 24,
-          left: 24,
-          right: 24,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Buat Habit Baru ✨',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: controller,
-              autofocus: true,
-              decoration: InputDecoration(
-                hintText: 'Misal: Belajar Flutter 1 Jam',
-                filled: true,
-                fillColor: Theme.of(
-                  context,
-                ).colorScheme.primary.withValues(alpha: 0.06),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-                prefixIcon: const Icon(Icons.edit_calendar),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                left: 20,
+                right: 20,
+                top: 20,
               ),
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Tambah Kebiasaan Baru',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
-                ),
-                onPressed: () {
-                  if (controller.text.trim().isNotEmpty) {
-                    provider.addHabit(controller.text.trim());
-                    Navigator.pop(context);
-                  }
-                },
-                child: const Text(
-                  'Simpan Rutinitas',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: nameController,
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      labelText: 'Nama Kebiasaan',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Pilih Kategori:',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    children: _categories.where((cat) => cat != 'Semua').map((
+                      cat,
+                    ) {
+                      final isSelected = selectedCategory == cat;
+                      return ChoiceChip(
+                        label: Text(cat),
+                        selected: isSelected,
+                        onSelected: (_) {
+                          setModalState(() {
+                            selectedCategory = cat;
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: () {
+                        final text = nameController.text.trim();
+                        if (text.isNotEmpty) {
+                          provider.addHabit(text, selectedCategory);
+                          Navigator.pop(context);
+                        }
+                      },
+                      child: const Text('Simpan Aktivitas'),
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
-        ),
-      ),
+            );
+          },
+        );
+      },
     );
   }
 }

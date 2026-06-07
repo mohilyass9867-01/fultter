@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/habit_provider.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
 
   @override
   Widget build(BuildContext context) {
+    // Mendengarkan data state dari HabitProvider secara real-time
+    final habitProvider = Provider.of<HabitProvider>(context);
+
     return Scaffold(
       appBar: AppBar(title: const Text('Pengaturan Aplikasi')),
       body: ListView(
@@ -19,9 +24,11 @@ class SettingsPage extends StatelessWidget {
               title: const Text('Mode Gelap (Dark Mode)'),
               subtitle: const Text('Ubah tema tampilan aplikasi'),
               trailing: Switch(
-                value: false,
-                onChanged: (value) {
-                  // Logika tema masa depan
+                // Nilai sakelar sinkron dengan database lokal via HabitProvider
+                value: habitProvider.isDarkMode,
+                onChanged: (bool value) {
+                  // Memicu perubahan tema secara global saat ditekan
+                  habitProvider.toggleTheme(value);
                 },
               ),
             ),

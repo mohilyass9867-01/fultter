@@ -8,30 +8,37 @@ class Habit extends HiveObject {
   final String id;
 
   @HiveField(1)
-  final String title;
+  String name; // Properti utama pelacakan filter
 
   @HiveField(2)
   bool isCompleted;
 
   @HiveField(3)
-  int streakCount;
+  int streak;
+
+  @HiveField(4)
+  String lastUpdated;
+
+  @HiveField(5)
+  String category; // Pelindung filter halaman utama
+
+  @HiveField(6)
+  List<String>? completedDates; // Dibuat nullable (?) untuk toleransi migrasi data lama
 
   Habit({
     required this.id,
-    required this.title,
+    required this.name,
     this.isCompleted = false,
-    this.streakCount = 0,
+    this.streak = 0,
+    required this.lastUpdated,
+    this.category = 'Umum',
+    this.completedDates,
   });
 
-  void toggleCompleted() {
-    isCompleted = !isCompleted;
+  // JALUR KOMPATIBILITAS: Menjamin halaman UI lama yang memanggil .title atau .completed tidak eror
+  String get title => name;
+  set title(String value) => name = value;
 
-    // Logika streak: Jika selesai, streak tambah. Jika batal, streak kurang.
-    if (isCompleted) {
-      streakCount++;
-    } else {
-      streakCount = (streakCount > 0) ? streakCount - 1 : 0;
-    }
-    save();
-  }
+  bool get completed => isCompleted;
+  set completed(bool value) => isCompleted = value;
 }

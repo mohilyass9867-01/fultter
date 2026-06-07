@@ -18,24 +18,33 @@ class HabitAdapter extends TypeAdapter<Habit> {
     };
     return Habit(
       id: fields[0] as String,
-      title: fields[1] as String,
+      name: fields[1] as String,
       isCompleted: fields[2] as bool,
-      streakCount: fields[3] as int,
+      streak: fields[3] as int,
+      lastUpdated: fields[4] as String,
+      category: fields[5] as String,
+      completedDates: (fields[6] as List?)?.cast<String>(),
     );
   }
 
   @override
   void write(BinaryWriter writer, Habit obj) {
     writer
-      ..writeByte(4)
+      ..writeByte(7)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
-      ..write(obj.title)
+      ..write(obj.name)
       ..writeByte(2)
       ..write(obj.isCompleted)
       ..writeByte(3)
-      ..write(obj.streakCount);
+      ..write(obj.streak)
+      ..writeByte(4)
+      ..write(obj.lastUpdated)
+      ..writeByte(5)
+      ..write(obj.category)
+      ..writeByte(6)
+      ..write(obj.completedDates);
   }
 
   @override
