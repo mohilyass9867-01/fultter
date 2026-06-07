@@ -3,102 +3,205 @@ import 'package:provider/provider.dart';
 import '../providers/habit_provider.dart';
 import '../models/habit.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  String _searchQuery = '';
+  String _selectedFilter = 'Semua'; // Opsi: Semua, Selesai, Belum
 
   @override
   Widget build(BuildContext context) {
     final habitProvider = Provider.of<HabitProvider>(context);
-    final habits = habitProvider.habits;
+
+    // --- OPSI B: LOGIKA PENCARIAN & FILTER DATA ---
+    final filteredHabits = habitProvider.habits.where((habit) {
+      final matchesSearch = habit.title.toLowerCase().contains(
+        _searchQuery.toLowerCase(),
+      );
+
+      if (_selectedFilter == 'Selesai') {
+        return matchesSearch && habit.isCompleted;
+      } else if (_selectedFilter == 'Belum') {
+        return matchesSearch && !habit.isCompleted;
+      }
+      return matchesSearch; // Default: 'Semua'
+    }).toList();
 
     return Scaffold(
       appBar: AppBar(title: const Text('StudyFlow Habits')),
-      body: habits.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.assignment_turned_in_outlined,
-                    size: 64,
-                    color: Colors.grey[400],
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Belum ada habit hari ini.\nMulai produktif sekarang!',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey[600], fontSize: 16),
-                  ),
-                ],
+      body: Column(
+        children: [
+          // --- OPSI B: COMPONENT SEARCH FIELD ---
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: TextField(
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value;
+                });
+              },
+              decoration: InputDecoration(
+                hintText: 'Cari rutinitas kamu...',
+                prefixIcon: const Icon(Icons.search),
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey[200]!),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey[200]!),
+                ),
               ),
-            )
-          : ListView.builder(
-              itemCount: habits.length,
-              padding: const EdgeInsets.only(top: 8, bottom: 80),
-              itemBuilder: (context, index) {
-                final habit = habits[index];
+            ),
+          ),
 
-                // --- PHASE 7: MODERNIZE LIST ITEM TO CARD ---
-                return Card(
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(16),
-                    onLongPress: () {
-                      _showDeleteDialog(context, habitProvider, habit, index);
+          // --- OPSI B: FILTER CHIPS COMPONENT ---
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: Row(
+              children: ['Semua', 'Selesai', 'Belum'].map((filter) {
+                final isSelected = _selectedFilter == filter;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: FilterChip(
+                    label: Text(filter == 'Belum' ? 'Belum Selesai' : filter),
+                    selected: isSelected,
+                    onSelected: (bool selected) {
+                      setState(() {
+                        _selectedFilter = filter;
+                      });
                     },
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 4,
-                        horizontal: 8,
-                      ),
-                      child: CheckboxListTile(
-                        title: Text(
-                          habit.title,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            decoration: habit.isCompleted
-                                ? TextDecoration.lineThrough
-                                : TextDecoration.none,
-                            color: habit.isCompleted
-                                ? Colors.grey
-                                : Colors.black87,
-                          ),
-                        ),
-                        subtitle: Row(
-                          children: [
-                            Icon(
-                              Icons.local_fire_department,
-                              size: 16,
-                              color: habit.streakCount > 0
-                                  ? Colors.orange
-                                  : Colors.grey,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${habit.streakCount} Hari Streak',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: habit.streakCount > 0
-                                    ? Colors.orange[700]
-                                    : Colors.grey,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                        value: habit.isCompleted,
-                        activeColor: Theme.of(context).colorScheme.secondary,
-                        checkColor: Colors.white,
-                        controlAffinity: ListTileControlAffinity.leading,
-                        onChanged: (bool? value) {
-                          habitProvider.toggleHabitCompletion(index);
-                        },
-                      ),
+                    selectedColor: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.15),
+                    checkmarkColor: Theme.of(context).colorScheme.primary,
+                    labelStyle: TextStyle(
+                      color: isSelected
+                          ? Theme.of(context).colorScheme.primary
+                          : Colors.black87,
+                      fontWeight: isSelected
+                          ? FontWeight.bold
+                          : FontWeight.normal,
                     ),
                   ),
                 );
-              },
+              }).toList(),
             ),
+          ),
+          const SizedBox(height: 8),
+
+          // --- HABIT BUILDER LIST ---
+          Expanded(
+            child: filteredHabits.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.search_off_outlined,
+                          size: 64,
+                          color: Colors.grey[400],
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Tidak ada habit yang cocok\ndengan pencarian atau filter.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 15,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: filteredHabits.length,
+                    padding: const EdgeInsets.only(top: 4, bottom: 80),
+                    itemBuilder: (context, index) {
+                      final habit = filteredHabits[index];
+                      // Mencari indeks asli di provider agar tidak salah hapus/centang saat difilter
+                      final originalIndex = habitProvider.habits.indexOf(habit);
+
+                      return Card(
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(16),
+                          onLongPress: () {
+                            _showDeleteDialog(
+                              context,
+                              habitProvider,
+                              habit,
+                              originalIndex,
+                            );
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 4,
+                              horizontal: 8,
+                            ),
+                            child: CheckboxListTile(
+                              title: Text(
+                                habit.title,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  decoration: habit.isCompleted
+                                      ? TextDecoration.lineThrough
+                                      : TextDecoration.none,
+                                  color: habit.isCompleted
+                                      ? Colors.grey
+                                      : Colors.black87,
+                                ),
+                              ),
+                              subtitle: Row(
+                                children: [
+                                  Icon(
+                                    Icons.local_fire_department,
+                                    size: 16,
+                                    color: habit.streakCount > 0
+                                        ? Colors.orange
+                                        : Colors.grey,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '${habit.streakCount} Hari Streak',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: habit.streakCount > 0
+                                          ? Colors.orange[700]
+                                          : Colors.grey,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              value: habit.isCompleted,
+                              activeColor: Theme.of(
+                                context,
+                              ).colorScheme.secondary,
+                              checkColor: Colors.white,
+                              controlAffinity: ListTileControlAffinity.leading,
+                              onChanged: (bool? value) {
+                                habitProvider.toggleHabitCompletion(
+                                  originalIndex,
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
           _showAddHabitBottomSheet(context, habitProvider);
@@ -112,7 +215,6 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  // Dialog Konfirmasi Hapus Clean Look
   void _showDeleteDialog(
     BuildContext context,
     HabitProvider provider,
@@ -149,7 +251,6 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  // Bottom Sheet Tambah Habit Modern (Bebas dari Deprecated warning withOpacity)
   void _showAddHabitBottomSheet(BuildContext context, HabitProvider provider) {
     final controller = TextEditingController();
     showModalBottomSheet(

@@ -2,24 +2,28 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
-// Menggunakan relative import agar aman dari perbedaan nama package root proyek
 import 'providers/habit_provider.dart';
-import 'pages/home_page.dart';
+import 'pages/main_navigation.dart';
 import 'models/habit.dart';
+import 'services/notification_service.dart'; // Import layanan notifikasi baru
 
 void main() async {
+  // Memastikan binding framework siap sebelum menjalankan fungsi async
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Inisialisasi Hive lokal untuk Flutter
+  
+  // 1. Inisialisasi Hive lokal untuk Flutter
   await Hive.initFlutter();
-
-  // Registrasi Adapter Habit jika belum terdaftar
+  
+  // 2. Registrasi Adapter Habit jika belum terdaftar
   if (!Hive.isAdapterRegistered(HabitAdapter().typeId)) {
     Hive.registerAdapter(HabitAdapter());
   }
-
-  // Membuka box penyimpanan sesuai database lokal kamu
+  
+  // 3. Membuka box penyimpanan database lokal Hive
   await Hive.openBox<Habit>('habits');
+
+  // 4. Inisialisasi Layanan Notifikasi Lokal
+  await NotificationService().initNotification();
 
   runApp(const MyApp());
 }
@@ -34,17 +38,17 @@ class MyApp extends StatelessWidget {
       child: MaterialApp(
         title: 'StudyFlow Habit Tracker',
         debugShowCheckedModeBanner: false,
-
+        
         // --- PHASE 7: POLISH UI GLOBAL THEME ---
         theme: ThemeData(
           useMaterial3: true,
           colorScheme: ColorScheme.fromSeed(
             seedColor: Colors.indigo,
             primary: Colors.indigo,
-            secondary: const Color.fromARGB(255, 61, 131, 63),
+            secondary: Colors.green,
             surface: Colors.grey[50]!, // Background lembut abu-abu terang
           ),
-
+          
           // Desain Card Global yang modern dan membulat
           cardTheme: CardThemeData(
             elevation: 2,
@@ -53,7 +57,7 @@ class MyApp extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
             ),
           ),
-
+          
           // Desain AppBar Clean tanpa garis pemisah kaku
           appBarTheme: const AppBarTheme(
             centerTitle: true,
@@ -67,7 +71,7 @@ class MyApp extends StatelessWidget {
             ),
           ),
         ),
-        home: const HomePage(),
+        home: const MainNavigation(),
       ),
     );
   }
