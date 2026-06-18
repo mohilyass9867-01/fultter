@@ -23,7 +23,7 @@ void main() async {
   await Hive.openBox<Habit>('habits');
   await Hive.openBox('settings'); // Membuka box settings agar bisa diakses di HabitProvider
 
-  // 4. Inisialisasi Layanan Notifikasi Lokal
+  // 4. Inisialisasi Layanan Notifikasi Lokal & Penjadwalan Motivasi Pagi Otomatis
   await NotificationService().initNotification();
 
   runApp(const MyApp());

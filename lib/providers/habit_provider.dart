@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:intl/intl.dart';
 import '../models/habit.dart';
+import '../services/notification_service.dart'; // Menghubungkan kembali jembatan layanan notifikasi
 
 class HabitProvider with ChangeNotifier {
   final Box<Habit> _habitBox = Hive.box<Habit>('habits');
@@ -26,22 +27,25 @@ class HabitProvider with ChangeNotifier {
   List<Habit> get habits {
     final allHabits = _habitBox.values.toList();
     return allHabits.where((habit) {
-      final matchesSearch = habit.name.toLowerCase().contains(_searchQuery.toLowerCase());
-      final matchesCategory = _selectedCategory == 'Semua' || habit.category == _selectedCategory;
+      final matchesSearch = habit.name.toLowerCase().contains(
+        _searchQuery.toLowerCase(),
+      );
+      final matchesCategory =
+          _selectedCategory == 'Semua' || habit.category == _selectedCategory;
       return matchesSearch && matchesCategory;
     }).toList();
   }
 
   String get searchQuery => _searchQuery;
   String get selectedCategory => _selectedCategory;
-  
+
   // Getter baru untuk menyuplai data mode tema aktif ke MaterialApp di main.dart
-  bool get isDarkMode => _isDarkMode; 
+  bool get isDarkMode => _isDarkMode;
 
   // ===========================================================================
   // MODULE BARU: FITUR MANAJEMEN TEMA SISTEM (DARK MODE)
   // ===========================================================================
-  
+
   // Membaca konfigurasi tema pengguna dari local storage Box settings
   void loadThemeSettings() {
     _isDarkMode = _settingsBox.get('isDarkMode', defaultValue: false) as bool;
@@ -88,6 +92,14 @@ class HabitProvider with ChangeNotifier {
     );
     _habitBox.put(newHabit.id, newHabit);
     notifyListeners();
+
+    // 🔔 INTEGRASI NOTIFIKASI: Mengapresiasi penambahan target rutinitas baru secara instan
+    NotificationService().showInstantNotification(
+      id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      title: 'Habit Baru Ditambahkan! 🚀',
+      body:
+          'Mantap! Langkah awal dimulai, mari konsisten melakukan "$name" mulai hari ini!',
+    );
   }
 
   // Mengubah Status Kelayakan Dan Mengisi Kalender Riwayat
@@ -95,9 +107,9 @@ class HabitProvider with ChangeNotifier {
     final habit = _habitBox.get(id);
     if (habit != null) {
       final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
-      
+
       habit.completedDates ??= [];
-      
+
       if (!habit.isCompleted) {
         habit.isCompleted = true;
         habit.streak += 1;
@@ -105,12 +117,21 @@ class HabitProvider with ChangeNotifier {
         if (!habit.completedDates!.contains(todayStr)) {
           habit.completedDates!.add(todayStr);
         }
+
+        // 🔔 INTEGRASI NOTIFIKASI: Rayakan kesuksesan mencentang habit dan merawat angka streak harian
+        NotificationService().showInstantNotification(
+          id: id
+              .hashCode, // Mengonversi String ID unik dari Hive menjadi format Integer agar aman dibaca sistem alarm HP
+          title: 'Luar Biasa! 🔥 Streak Bertambah!',
+          body:
+              'Kamu menyelesaikan "${habit.name}"! Berhasil mempertahankan streak selama ${habit.streak} hari.',
+        );
       } else {
         habit.isCompleted = false;
         if (habit.streak > 0) habit.streak -= 1;
         habit.completedDates!.remove(todayStr);
       }
-      
+
       habit.save();
       _settingsBox.put('last_open_date', todayStr);
       notifyListeners();
@@ -127,7 +148,8 @@ class HabitProvider with ChangeNotifier {
   // Logika Auto-Reset Harian & Validasi Streak Mingguan Otomatis
   void checkAndResetNewDay() {
     final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
-    final lastOpenDate = _settingsBox.get('last_open_date', defaultValue: todayStr) as String;
+    final lastOpenDate =
+        _settingsBox.get('last_open_date', defaultValue: todayStr) as String;
 
     if (lastOpenDate != todayStr) {
       DateTime lastDate = DateTime.parse(lastOpenDate);
@@ -135,10 +157,16 @@ class HabitProvider with ChangeNotifier {
       int differenceInDays = today.difference(lastDate).inDays;
 
       // 1. EVALUASI STREAK MINGGUAN (Dihitung berdasarkan pergantian kalender minggu ISO)
-      DateTime lastMonday = DateTime(lastDate.year, lastDate.month, lastDate.day)
-          .subtract(Duration(days: lastDate.weekday - 1));
-      DateTime todayMonday = DateTime(today.year, today.month, today.day)
-          .subtract(Duration(days: today.weekday - 1));
+      DateTime lastMonday = DateTime(
+        lastDate.year,
+        lastDate.month,
+        lastDate.day,
+      ).subtract(Duration(days: lastDate.weekday - 1));
+      DateTime todayMonday = DateTime(
+        today.year,
+        today.month,
+        today.day,
+      ).subtract(Duration(days: today.weekday - 1));
 
       // Jika hari Senin di minggu ini sudah lebih maju daripada minggu saat terakhir aplikasi dibuka
       if (todayMonday.isAfter(lastMonday)) {
@@ -150,19 +178,27 @@ class HabitProvider with ChangeNotifier {
           for (int i = 0; i < 7; i++) {
             DateTime checkDay = lastMonday.add(Duration(days: i));
             String checkDayStr = DateFormat('yyyy-MM-dd').format(checkDay);
-            
+
             if (!habit.completedDates!.contains(checkDayStr)) {
               isWeeklyPerfect = false; // Ketemu satu hari bolong!
               break;
             }
           }
 
-          int currentWeeklyStreak = _settingsBox.get('weekly_streak_${habit.id}', defaultValue: 0) as int;
-          
+          int currentWeeklyStreak =
+              _settingsBox.get('weekly_streak_${habit.id}', defaultValue: 0)
+                  as int;
+
           if (isWeeklyPerfect) {
-            _settingsBox.put('weekly_streak_${habit.id}', currentWeeklyStreak + 1);
+            _settingsBox.put(
+              'weekly_streak_${habit.id}',
+              currentWeeklyStreak + 1,
+            );
           } else {
-            _settingsBox.put('weekly_streak_${habit.id}', 0); // Ada hari bolong, streak mingguan hangus ke 0
+            _settingsBox.put(
+              'weekly_streak_${habit.id}',
+              0,
+            ); // Ada hari bolong, streak mingguan hangus ke 0
           }
         }
       }
@@ -175,7 +211,7 @@ class HabitProvider with ChangeNotifier {
         habit.isCompleted = false;
         habit.save();
       }
-      
+
       _settingsBox.put('last_open_date', todayStr);
       notifyListeners();
     }
